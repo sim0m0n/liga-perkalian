@@ -304,6 +304,41 @@
         <!-- Rules & Duration Setup -->
         <div class="mt-6 pt-5 border-t border-emerald-800 flex flex-wrap items-center justify-between gap-4">
           <div class="flex flex-wrap items-center gap-4">
+            <!-- Custom Multiplication Range Selector -->
+            <div class="flex items-center gap-2 bg-emerald-950/90 px-3.5 py-2 rounded-xl border border-amber-400/50 shadow-inner">
+              <span class="text-xs sm:text-sm font-black text-amber-300 flex items-center gap-1">
+                <span>🎯</span> Rentang Soal:
+              </span>
+              <div class="flex items-center gap-1.5">
+                <label for="rangeMinSelect" class="text-xs text-emerald-200 font-semibold">Perkalian</label>
+                <select id="rangeMinSelect" onchange="validateMultiplicationRange('min')" class="bg-slate-900 border border-emerald-500 rounded-lg px-2.5 py-1 text-xs sm:text-sm text-amber-300 font-black focus:outline-none">
+                  <option value="1" selected>1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                </select>
+                <span class="text-xs text-emerald-300 font-bold">s/d</span>
+                <select id="rangeMaxSelect" onchange="validateMultiplicationRange('max')" class="bg-slate-900 border border-emerald-500 rounded-lg px-2.5 py-1 text-xs sm:text-sm text-amber-300 font-black focus:outline-none">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                  <option value="10" selected>10</option>
+                </select>
+              </div>
+            </div>
+
             <div class="flex items-center gap-2">
               <label class="text-xs sm:text-sm font-semibold text-emerald-200">Durasi Per Babak:</label>
               <select id="matchDurationSelect" class="bg-slate-900 border border-emerald-500 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-amber-300 font-bold focus:outline-none">
@@ -487,7 +522,7 @@
           </div>
 
           <div class="bg-amber-950/70 p-3 rounded-xl border border-amber-600/50 mb-5 text-xs text-amber-200">
-            🔥 <b>Tantangan Babak 2:</b> Soal perkalian angka <b>6 sampai 10!</b>
+            🔥 <b>Babak 2 Siap Dimulai:</b> Bersiaplah untuk paruh waktu penentu kemenangan!
           </div>
 
           <button onclick="startSecondHalf()" class="w-full py-3.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black text-lg rounded-xl shadow-lg transition">
@@ -1531,17 +1566,31 @@
     let activeMatch = null;
     let matchTimerInterval = null;
 
-    function generateQuestion(half) {
-      let num1, num2;
-      if (half === 1) {
-        // Babak 1: Perkalian angka dasar 1 - 5
-        num1 = Math.floor(Math.random() * 5) + 1; // 1 s.d 5
-        num2 = Math.floor(Math.random() * 10) + 1; // 1 s.d 10
-      } else {
-        // Babak 2: Perkalian angka tantangan 6 - 10
-        num1 = Math.floor(Math.random() * 5) + 6; // 6 s.d 10
-        num2 = Math.floor(Math.random() * 9) + 2; // 2 s.d 10
+    function validateMultiplicationRange(trigger) {
+      const minEl = document.getElementById('rangeMinSelect');
+      const maxEl = document.getElementById('rangeMaxSelect');
+      let minVal = parseInt(minEl.value, 10);
+      let maxVal = parseInt(maxEl.value, 10);
+
+      if (minVal > maxVal) {
+        if (trigger === 'min') {
+          maxEl.value = minVal;
+        } else {
+          minEl.value = maxVal;
+        }
       }
+    }
+
+    function generateQuestion(half) {
+      const minRange = (activeMatch && activeMatch.customMin) ? activeMatch.customMin : 1;
+      const maxRange = (activeMatch && activeMatch.customMax) ? activeMatch.customMax : 10;
+
+      // Pilih faktor utama secara acak dalam batas rentang [minRange, maxRange]
+      const rangeDiff = maxRange - minRange + 1;
+      const num1 = Math.floor(Math.random() * rangeDiff) + minRange;
+      
+      // Faktor kedua (pengali 1 s/d 10)
+      const num2 = Math.floor(Math.random() * 10) + 1;
 
       const answer = num1 * num2;
       const options = new Set();
@@ -1577,6 +1626,10 @@
         return;
       }
 
+      validateMultiplicationRange('min');
+      const minRange = parseInt(document.getElementById('rangeMinSelect').value, 10) || 1;
+      const maxRange = parseInt(document.getElementById('rangeMaxSelect').value, 10) || 10;
+
       const studentA = students.find(s => s.id === selectA.value);
       const studentB = students.find(s => s.id === selectB.value);
       const duration = parseInt(document.getElementById('matchDurationSelect').value, 10);
@@ -1590,6 +1643,8 @@
         studentB: studentB,
         durationPerHalf: duration,
         freezeRule: freezeRule,
+        customMin: minRange,
+        customMax: maxRange,
         currentHalf: 1,
         timeLeft: duration,
         scoreA: 0,
@@ -1629,11 +1684,15 @@
 
     function updateHalfUI(half) {
       const badge = document.getElementById('matchStatusBadge');
+      const rangeText = (activeMatch && activeMatch.customMin) 
+        ? `${activeMatch.customMin} s/d ${activeMatch.customMax}` 
+        : `1 s/d 10`;
+
       if (half === 1) {
-        badge.textContent = "BABAK 1 (Perkalian 1-5)";
+        badge.textContent = `BABAK 1 (Perkalian ${rangeText})`;
         badge.className = "bg-blue-400 text-slate-950 text-xs sm:text-sm font-black px-3 py-1 rounded-full uppercase tracking-wider";
       } else {
-        badge.textContent = "BABAK 2 (Perkalian 6-10)";
+        badge.textContent = `BABAK 2 (Perkalian ${rangeText})`;
         badge.className = "bg-amber-400 text-slate-950 text-xs sm:text-sm font-black px-3 py-1 rounded-full uppercase tracking-wider";
       }
     }
